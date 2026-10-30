@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ et.full_ent }} · {{ t.site_title }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">ЕНТ · ҰБТ</p>
+  <h1>{{ et.full_ent }}</h1>
+  <p class="lead">{{ et.full_ent_hint }}</p>
+</section>
+
+<h2 class="section-title">{{ et.variants }}</h2>
+<div class="variants">
+  {% for c in cards %}
+  <div class="card variant">
+    <div>
+      <h3>{{ c.title }}</h3>
+      <p class="muted">120 · 140 {{ et.points|lower }} · {{ c.v.duration_minutes }} {{ et.min }}{% if c.best is not None %} · {{ et.best }}: <strong>{{ c.best }}</strong>{% endif %}</p>
+    </div>
+    {% if c.active %}
+      <a class="btn" href="{% url 'exam_take' c.active.id %}">{{ et.continue }}</a>
+    {% else %}
+      <form method="post" action="{% url 'exam_start' c.v.id %}" onsubmit="return confirm('{{ et.start_confirm|escapejs }}')">{% csrf_token %}
+        <button class="btn" type="submit">{{ et.start_exam }}</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<h2 class="section-title">{{ et.structure }}</h2>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>{{ et.subject }}</th><th>{{ et.tasks }}</th><th>{{ et.points }}</th><th>{{ et.threshold }}</th></tr></thead>
+    <tbody>
+      {% for s in structure %}
+      <tr><td>{{ s.name }}</td><td>{{ s.tasks }}</td><td>{{ s.max }}</td><td>{{ s.threshold }}</td></tr>
+      {% endfor %}
+      <tr class="total"><td>{{ et.total }}</td><td>120</td><td>140</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="muted small">{{ et.thresholds_note }}</p>
+
+{% if history %}
+<h2 class="section-title">{{ et.history }}</h2>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>{{ et.date }}</th><th>{{ et.variant }}</th><th>{{ et.score }}</th></tr></thead>
+    <tbody>
+      {% for h in history %}
+      <tr>
+        <td>{{ h.a.finished_at|date:"d.m.Y H:i" }}</td>
+        <td><a href="{% url 'exam_result' h.a.id %}">{{ h.title }}</a></td>
+        <td><strong>{{ h.a.score }}</strong> / 140</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

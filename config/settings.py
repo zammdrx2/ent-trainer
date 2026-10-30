@@ -31,6 +31,8 @@ SECRET_KEY = os.getenv(
 )
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+# Для доступа по https через туннель или хостинг, например https://*.trycloudflare.com
+CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -40,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "quiz",
+    "exam",
 ]
 
 MIDDLEWARE = [
@@ -106,6 +109,8 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# WhiteNoise отдаёт CSS и при DEBUG=0 без отдельного collectstatic
+WHITENOISE_USE_FINDERS = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -116,3 +121,6 @@ LOGOUT_REDIRECT_URL = "home"
 # Количество вопросов в одном тесте
 QUESTIONS_PER_TOPIC_TEST = 10
 QUESTIONS_PER_MIXED_TEST = 20
+
+# Не обрывать длинные POST-запросы при завершении ЕНТ (120 заданий)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000

@@ -43,9 +43,10 @@ class Command(BaseCommand):
                     explanation_ru=q.get("exp_ru", ""), explanation_kk=q.get("exp_kk", ""),
                     difficulty=q.get("d", 1),
                 )
+                pairs = [(c, c) if isinstance(c, str) else (c[0], c[1] or c[0]) for c in q["choices"]]
                 Choice.objects.bulk_create(
                     Choice(question=question, text_ru=ru, text_kk=kk, is_correct=(i == answer))
-                    for i, (ru, kk) in enumerate(q["choices"])
+                    for i, (ru, kk) in enumerate(pairs)
                 )
                 created += 1
 

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ et.full_ent }}{% endblock %}
+{% block content %}
+<div class="exambar">
+  <div class="exambar__row">
+    <div class="exambar__title">{{ title }}</div>
+    <div class="timer" id="timer" aria-live="polite"><span class="muted">{{ et.time_left }}</span> <strong id="clock">--:--:--</strong></div>
+  </div>
+  <div class="exambar__row">
+    <div class="tabs" role="tablist">
+      {% for s in sections %}
+      <button type="button" class="tab{% if forloop.first %} is-active{% endif %}" data-tab="{{ s.subject }}" role="tab">
+        {{ s.name }} <span class="tab__count" data-count="{{ s.subject }}">0/{{ s.items|length }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    <span class="savestate muted" id="savestate"></span>
+  </div>
+</div>
+
+<form id="exam" data-save-url="{% url 'exam_save' attempt.id %}" data-seconds="{{ seconds_left }}"
+      data-saved="{{ et.saved }}" data-saving="{{ et.saving }}" data-error="{{ et.save_error }}"
+      data-timeup="{{ et.time_up }}" data-confirm="{{ et.finish_confirm }}" onsubmit="return false">
+  {% csrf_token %}
+  {% for s in sections %}
+  <section class="subject{% if not forloop.first %} is-hidden{% endif %}" data-subject="{{ s.subject }}">
+    <nav class="qnav" aria-label="{{ s.name }}">
+      {% for it in s.items %}<a href="#task-{{ it.id }}" class="qnav__item" data-nav="{{ it.id }}">{{ it.number }}</a>{% endfor %}
+    </nav>
+
+    {% for it in s.items %}
+      {% if it.show_context %}
+      <div class="context">
+        {% if s.subject == "reading" %}<p class="eyebrow">{{ et.read_text }}</p>{% endif %}
+        <div class="context__text">{{ it.context|linebreaks }}</div>
+      </div>
+      {% endif %}
+      <fieldset class="card question" id="task-{{ it.id }}" data-task="{{ it.id }}" data-kind="{{ it.kind }}" data-subject="{{ s.subject }}">
+        <legend class="question__num">{{ it.number }} · {% if it.kind == "multi" %}{{ et.multi_answer }}{% elif it.kind == "match" %}{{ et.match_answer }}{% else %}{{ et.one_answer }}{% endif %}{% if it.max > 1 %} · {{ it.max }} {{ et.pts }}{% endif %}</legend>
+        <div class="question__text">{{ it.text|linebreaksbr }}</div>
+        {% if it.code %}<pre class="code"><code>{{ it.code }}</code></pre>{% endif %}
+
+        {% if it.kind == "match" %}
+          <div class="match">
+            <ol class="match__options">
+              {% for o in it.options %}<li><span class="choice__mark">{{ o.letter }}</span> {{ o.text }}</li>{% endfor %}
+            </ol>
+            {% for left in it.left %}
+            <label class="match__row">
+              <span class="match__left"><b>{{ forloop.counter }}.</b> {{ left }}</span>
+              <select data-slot="{{ forloop.counter }}">
+                <option value="">{{ et.choose }}</option>
+                {% for o in it.options %}<option value="{{ o.id }}">{{ o.letter }}</option>{% endfor %}
+              </select>
+            </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="choices">
+            {% for o in it.options %}
+            <label class="choice">
+              <input type="{% if it.kind == 'multi' %}checkbox{% else %}radio{% endif %}" name="t{{ it.id }}" value="{{ o.id }}">
+              <span class="choice__mark">{{ o.letter }}</span>
+              <span>{{ o.text }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </fieldset>
+    {% endfor %}
+
+    {% if not forloop.last %}
+      <button type="button" class="btn btn--ghost btn--wide" data-next="{{ forloop.counter }}">{{ et.next_subject }}</button>
+    {% endif %}
+  </section>
+  {% endfor %}
+</form>
+
+<form method="post" action="{% url 'exam_finish' attempt.id %}" id="finish-form" class="finish">
+  {% csrf_token %}
+  <input type="hidden" name="answers" id="answers-field">
+  <button type="submit" class="btn btn--wide">{{ et.finish }}</button>
+</form>
+
+{{ saved_json|json_script:"saved-answers" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById("exam");
+  const finishForm = document.getElementById("finish-form");
+  const answers = JSON.parse(JSON.parse(document.getElementById("saved-answers").textContent) || "{}");
+  const csrf = form.querySelector("[name=csrfmiddlewaretoken]").value;
+  const saveState = document.getElementById("savestate");
+  let dirty = {}, timerId = null, finishing = false;
+
+  const isAnswered = (a) => Boolean(a) && (Array.isArray(a) ? a.length > 0 : Object.keys(a).length > 0);
+
+  function readTask(fs) {
+    const kind = fs.dataset.kind;
+    if (kind === "match") {
+      const out = {};
+      fs.querySelectorAll("select").forEach(s => { if (s.value) out[s.dataset.slot] = Number(s.value); });
+      return out;
+    }
+    return [...fs.querySelectorAll("input:checked")].map(i => Number(i.value));
+  }
+
+  function writeTask(fs, a) {
+    if (!a) return;
+    if (fs.dataset.kind === "match") {
+      fs.querySelectorAll("select").forEach(s => { if (a[s.dataset.slot]) s.value = a[s.dataset.slot]; });
+    } else {
+      fs.querySelectorAll("input").forEach(i => { i.checked = a.includes(Number(i.value)); });
+    }
+  }
+
+  function refreshCounts() {
+    document.querySelectorAll("[data-count]").forEach(el => {
+      const subj = el.dataset.count;
+      const all = form.querySelectorAll(`fieldset[data-subject="${subj}"]`);
+      let done = 0;
+      all.forEach(fs => { if (isAnswered(answers[fs.dataset.task])) done++; });
+      el.textContent = `${done}/${all.length}`;
+    });
+    document.querySelectorAll("[data-nav]").forEach(el => {
+      el.classList.toggle("is-done", isAnswered(answers[el.dataset.nav]));
+    });
+  }
+
+  async function save() {
+    const batch = dirty; dirty = {};
+    if (!Object.keys(batch).length) return;
+    saveState.textContent = form.dataset.saving;
+    try {
+      const r = await fetch(form.dataset.saveUrl, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+        body: JSON.stringify({answers: batch}),
+      });
+      const data = await r.json();
+      if (data.expired) return finish(true);
+      saveState.textContent = form.dataset.saved;
+      if (typeof data.seconds_left === "number") left = data.seconds_left;
+    } catch (e) {
+      Object.assign(batch, dirty); dirty = batch;  // повторим позже
+      saveState.textContent = form.dataset.error;
+    }
+  }
+
+  form.addEventListener("change", (e) => {
+    const fs = e.target.closest("fieldset[data-task]");
+    if (!fs) return;
+    if (fs.dataset.kind === "multi") {
+      const checked = fs.querySelectorAll("input:checked");
+      if (checked.length > 3) { e.target.checked = false; }
+    }
+    const id = fs.dataset.task;
+    answers[id] = readTask(fs);
+    dirty[id] = answers[id];
+    refreshCounts();
+    clearTimeout(timerId);
+    timerId = setTimeout(save, 1200);
+  });
+
+  // Вкладки предметов
+  function showTab(subject) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("is-active", t.dataset.tab === subject));
+    document.querySelectorAll(".subject").forEach(s => s.classList.toggle("is-hidden", s.dataset.subject !== subject));
+    window.scrollTo({top: 0});
+  }
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
+  document.querySelectorAll("[data-next]").forEach(b => b.addEventListener("click", () => {
+    const tabs = [...document.querySelectorAll(".tab")];
+    showTab(tabs[Number(b.dataset.next)].dataset.tab);
+  }));
+
+  // Таймер (сервер всё равно проверяет время сам)
+  let left = Number(form.dataset.seconds);
+  const clock = document.getElementById("clock");
+  const timerBox = document.getElementById("timer");
+  function tick() {
+    const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
+    clock.textContent = [h, m, s].map(v => String(v).padStart(2, "0")).join(":");
+    timerBox.classList.toggle("is-low", left <= 600);
+    if (left <= 0) return finish(true);
+    left -= 1;
+  }
+  tick();
+  const clockId = setInterval(tick, 1000);
+
+  function finish(timeUp) {
+    if (finishing) return;
+    finishing = true;
+    clearInterval(clockId);
+    if (timeUp) saveState.textContent = form.dataset.timeup;
+    document.getElementById("answers-field").value = JSON.stringify(answers);
+    finishForm.submit();
+  }
+  finishForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (confirm(form.dataset.confirm)) finish(false);
+  });
+  window.addEventListener("beforeunload", (e) => {
+    if (!finishing && Object.keys(dirty).length) { save(); e.preventDefault(); e.returnValue = ""; }
+  });
+
+  form.querySelectorAll("fieldset[data-task]").forEach(fs => writeTask(fs, answers[fs.dataset.task]));
+  refreshCounts();
+})();
+</script>
+{% endblock %}

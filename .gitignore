@@ -6,3 +6,9 @@ __pycache__/
 db.sqlite3
 staticfiles/
 .DS_Store
+
+# Материалы НЦТ и другие вопросы, которые нельзя публиковать
+private_data/
+
+# Скачанные инструменты (cloudflared)
+.tools/

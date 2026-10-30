@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ et.result }} · {{ title }}{% endblock %}
+{% block content %}
+<section class="score card">
+  <p class="eyebrow">{{ et.result }} · {{ title }}</p>
+  <div class="score__big {% if attempt.score >= 100 %}is-good{% elif attempt.score >= 50 %}is-mid{% else %}is-low{% endif %}">
+    {{ attempt.score }}<span>/140</span>
+  </div>
+  <p class="{% if all_passed %}is-good{% else %}is-low{% endif %}"><strong>{% if all_passed %}✓ {{ et.passed_all }}{% else %}✗ {{ et.failed_some }}{% endif %}</strong></p>
+  <p class="muted">{{ et.time_used }}: {{ minutes }} {{ et.min }}</p>
+</section>
+
+<div class="card">
+  {% for r in summary %}
+  <div class="bar-row">
+    <span class="bar-row__name">{{ r.name }}<br><small class="{% if r.passed %}is-good{% else %}is-low{% endif %}">{% if r.passed %}{{ et.passed }}{% else %}{{ et.failed }}{% endif %} ({{ et.threshold|lower }} {{ r.threshold }})</small></span>
+    <div class="meter"><div class="meter__fill {% if r.percent >= 70 %}is-good{% elif r.percent >= 40 %}is-mid{% else %}is-low{% endif %}" style="width: {{ r.percent }}%"></div></div>
+    <span class="bar-row__val"><strong>{{ r.score }}</strong> / {{ r.max }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row" style="margin: 8px 0 24px">
+  <a class="btn" href="{% url 'exam_home' %}">{{ et.to_exams }}</a>
+</div>
+
+<h2 class="section-title">{{ et.review }}</h2>
+<div class="tabs tabs--static" role="tablist">
+  {% for s in sections %}
+  <button type="button" class="tab{% if forloop.first %} is-active{% endif %}" data-tab="{{ s.subject }}">{{ s.name }}</button>
+  {% endfor %}
+</div>
+
+{% for s in sections %}
+<section class="subject{% if not forloop.first %} is-hidden{% endif %}" data-subject="{{ s.subject }}">
+  {% for it in s.items %}
+    {% if it.show_context %}<div class="context"><div class="context__text">{{ it.context|linebreaks }}</div></div>{% endif %}
+    <article class="card review {% if it.points == it.max %}is-right{% elif it.points > 0 %}is-part{% else %}is-wrong{% endif %}">
+      <p class="review__tag">{{ it.number }} · {{ it.points }}/{{ it.max }} {{ et.pts }}</p>
+      <div class="question__text">{{ it.text|linebreaksbr }}</div>
+      {% if it.code %}<pre class="code"><code>{{ it.code }}</code></pre>{% endif %}
+      {% if it.kind == "match" %}
+        <ol class="match__options">
+          {% for o in it.options %}<li><span class="choice__mark">{{ o.letter }}</span> {{ o.text }}</li>{% endfor %}
+        </ol>
+        {% for row in it.match_rows %}
+        <p>{{ forloop.counter }}. {{ row.left }} → <strong>{{ row.right }}</strong>
+          {% if row.chosen != row.right %}<span class="muted">({{ et.your_answer }}: {% if row.chosen %}<s>{{ row.chosen }}</s>{% else %}—{% endif %})</span>{% endif %}</p>
+        {% endfor %}
+      {% else %}
+        <ul class="review__opts">
+          {% for o in it.options %}
+          <li class="{% if o.correct %}opt-right{% elif o.chosen %}opt-wrong{% endif %}">
+            <span class="choice__mark">{{ o.letter }}</span> {{ o.text }}
+            {% if o.correct %}<small>✓ {{ et.correct_answer }}</small>{% endif %}
+            {% if o.chosen %}<small>· {{ et.your_answer }}</small>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if it.explanation %}<p class="explain"><strong>{{ et.explanation }}.</strong> {{ it.explanation }}</p>{% endif %}
+    </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelectorAll(".tabs--static .tab").forEach(t => t.addEventListener("click", () => {
+    document.querySelectorAll(".tabs--static .tab").forEach(x => x.classList.toggle("is-active", x === t));
+    document.querySelectorAll(".subject").forEach(s => s.classList.toggle("is-hidden", s.dataset.subject !== t.dataset.tab));
+  }));
+</script>
+{% endblock %}

@@ -9,6 +9,18 @@
   {% endif %}
 </section>
 
+<section class="mixed mixed--ent">
+  <div>
+    <h2>{{ t.full_ent }}</h2>
+    <p class="muted">{{ t.full_ent_hint }}</p>
+  </div>
+  {% if user.is_authenticated %}
+    <a class="btn" href="{% url 'exam_home' %}">{{ t.start }}</a>
+  {% else %}
+    <a class="btn" href="{% url 'login' %}?next=/ent/">{{ t.login_to_start }}</a>
+  {% endif %}
+</section>
+
 <section class="mixed">
   <div>
     <h2>{{ t.mixed_test }}</h2>
