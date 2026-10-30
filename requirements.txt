@@ -1,0 +1,4 @@
+Django>=5.0,<6.0
+psycopg[binary]>=3.1  # нужен только для PostgreSQL; для SQLite можно не ставить
+gunicorn>=22.0
+whitenoise>=6.6

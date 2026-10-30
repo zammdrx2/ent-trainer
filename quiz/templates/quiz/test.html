@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ t.site_title }}{% endblock %}
+{% block content %}
+<div class="testhead">
+  <h1>{{ title }}</h1>
+  <div class="progress"><div class="progress__bar" id="bar"></div></div>
+  <p class="muted"><span id="done">0</span> / {{ items|length }} {{ t.answered }}</p>
+</div>
+
+<form method="post" id="test-form" data-warn="{{ t.unanswered_warn }}">{% csrf_token %}
+  {% for it in items %}
+  <fieldset class="card question">
+    <legend class="question__num">{{ t.question }} {{ forloop.counter }}</legend>
+    <p class="question__text">{{ it.text }}</p>
+    {% if it.code %}<pre class="code"><code>{{ it.code }}</code></pre>{% endif %}
+    <div class="choices">
+      {% for c in it.choices %}
+      <label class="choice">
+        <input type="radio" name="q{{ it.q.id }}" value="{{ c.id }}">
+        <span class="choice__mark">{% cycle 'A' 'B' 'C' 'D' 'E' 'F' %}</span>
+        <span>{{ c.text }}</span>
+      </label>
+      {% endfor %}
+      {% resetcycle %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  <button class="btn btn--wide" type="submit">{{ t.finish }}</button>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("test-form");
+    const total = {{ items|length }};
+    const update = () => {
+      const done = new Set([...form.querySelectorAll("input[type=radio]:checked")].map(r => r.name)).size;
+      document.getElementById("done").textContent = done;
+      document.getElementById("bar").style.width = (total ? 100 * done / total : 0) + "%";
+      return done;
+    };
+    form.addEventListener("change", update);
+    form.addEventListener("submit", (e) => {
+      if (update() < total && !confirm(form.dataset.warn)) e.preventDefault();
+    });
+  })();
+</script>
+{% endblock %}

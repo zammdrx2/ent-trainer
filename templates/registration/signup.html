@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ t.signup }} · {{ t.site_title }}{% endblock %}
+{% block content %}
+<div class="card auth">
+  <h1>{{ t.signup }}</h1>
+  <form method="post">{% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn--wide" type="submit">{{ t.signup }}</button>
+  </form>
+  <p class="muted">{{ t.have_account }} <a href="{% url 'login' %}">{{ t.login }}</a></p>
+</div>
+{% endblock %}

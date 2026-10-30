@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ t.my_stats }} · {{ t.site_title }}{% endblock %}
+{% block content %}
+<h1>{{ t.my_stats }}</h1>
+
+<div class="kpis">
+  <div class="card kpi"><span class="muted">{{ t.tests_done }}</span><strong>{{ count }}</strong></div>
+  <div class="card kpi"><span class="muted">{{ t.avg_score }}</span><strong>{% if avg is not None %}{{ avg }}%{% else %}—{% endif %}</strong></div>
+</div>
+
+{% if weak %}
+<div class="card weak">
+  <strong>{{ t.weak_topics }}:</strong>
+  {% for r in weak %}<span class="pill">{{ r.name }} · {{ r.percent }}%</span>{% endfor %}
+</div>
+{% endif %}
+
+<h2 class="section-title">{{ t.stats_by_topic }}</h2>
+<div class="card">
+  {% for r in topic_rows %}
+  <div class="bar-row">
+    <span class="bar-row__name">{{ r.name }}</span>
+    <div class="meter">
+      {% if r.percent is not None %}<div class="meter__fill {% if r.percent >= 70 %}is-good{% elif r.percent >= 40 %}is-mid{% else %}is-low{% endif %}" style="width: {{ r.percent }}%"></div>{% endif %}
+    </div>
+    <span class="bar-row__val">{% if r.percent is not None %}{{ r.percent }}% <small class="muted">({{ r.correct }}/{{ r.total }})</small>{% else %}<small class="muted">{{ t.no_data }}</small>{% endif %}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<h2 class="section-title">{{ t.history }}</h2>
+{% if history %}
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>{{ t.date }}</th><th>{{ t.test }}</th><th>{{ t.score }}</th></tr></thead>
+    <tbody>
+      {% for h in history %}
+      <tr>
+        <td>{{ h.a.finished_at|date:"d.m.Y H:i" }}</td>
+        <td><a href="{% url 'result' h.a.id %}">{{ h.name }}</a></td>
+        <td>{{ h.a.score }}/{{ h.a.total }} · {{ h.a.percent }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">{{ t.no_tests_yet }}</p>
+{% endif %}
+{% endblock %}

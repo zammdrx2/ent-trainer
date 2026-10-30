@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ t.result }} · {{ t.site_title }}{% endblock %}
+{% block content %}
+<section class="score card">
+  <p class="eyebrow">{{ t.result }} · {{ title }}</p>
+  <div class="score__big {% if attempt.percent >= 70 %}is-good{% elif attempt.percent >= 40 %}is-mid{% else %}is-low{% endif %}">
+    {{ attempt.score }}<span>/{{ attempt.total }}</span>
+  </div>
+  <p class="muted">{{ attempt.percent }}%</p>
+  <div class="row">
+    {% if attempt.topic %}
+      <form method="post" action="{% url 'start_topic' attempt.topic.id %}">{% csrf_token %}
+        <button class="btn" type="submit">{{ t.try_again }}</button></form>
+    {% else %}
+      <form method="post" action="{% url 'start_mixed' %}">{% csrf_token %}
+        <button class="btn" type="submit">{{ t.try_again }}</button></form>
+    {% endif %}
+    <a class="btn btn--ghost" href="{% url 'home' %}">{{ t.to_home }}</a>
+  </div>
+</section>
+
+{% for it in items %}
+<article class="card review {% if it.is_correct %}is-right{% else %}is-wrong{% endif %}">
+  <p class="review__tag">{{ forloop.counter }}. {% if it.is_correct %}✓ {{ t.correct }}{% elif it.chosen %}✗ {{ t.wrong }}{% else %}— {{ t.no_answer }}{% endif %}</p>
+  <p class="question__text">{{ it.text }}</p>
+  {% if it.code %}<pre class="code"><code>{{ it.code }}</code></pre>{% endif %}
+  {% if not it.is_correct %}
+    {% if it.chosen %}<p><span class="muted">{{ t.your_answer }}:</span> <s>{{ it.chosen }}</s></p>{% endif %}
+    <p><span class="muted">{{ t.right_answer }}:</span> <strong>{{ it.correct }}</strong></p>
+  {% endif %}
+  {% if it.explanation %}<p class="explain"><strong>{{ t.explanation }}.</strong> {{ it.explanation }}</p>{% endif %}
+</article>
+{% endfor %}
+{% endblock %}
